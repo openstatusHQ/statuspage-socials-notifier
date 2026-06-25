@@ -1,0 +1,18 @@
+# Fly.io config. Deploy with: fly launch --copy-config --no-deploy  (or `fly deploy`)
+# Set secrets first:  fly secrets set OPENSTATUS_WEBHOOK_TOKEN=... BLUESKY_IDENTIFIER=... (etc.)
+app = "statuspage-socials-notifier"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 3000        # matches EXPOSE 3000 in the Dockerfile
+  force_https = true
+  auto_stop_machines = "stop" # scale to zero between webhooks
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
