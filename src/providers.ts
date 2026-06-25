@@ -15,23 +15,6 @@ export interface SocialProvider {
   post(text: string, env: Env): Promise<void>;
 }
 
-const TIMEOUT_MS = 8000;
-
-function postJson(url: string, body: unknown, headers: Record<string, string> = {}) {
-  return fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
-}
-
-async function ensureOk(label: string, res: Response): Promise<void> {
-  if (res.ok) return;
-  const body = await res.text().catch(() => "");
-  throw new Error(`${label} failed: ${res.status} ${body}`);
-}
-
 /**
  * Bluesky via the official @atproto/api SDK. Auth: an app password
  * (Settings → Privacy and Security → App Passwords), not your login.

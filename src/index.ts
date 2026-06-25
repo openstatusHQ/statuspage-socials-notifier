@@ -2,7 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { configuredProviders } from "./providers";
+import { configuredProviders } from "./providers.js";
 
 // --- openstatus webhook contract (pinned to payload version "1") ---
 // Mirrors openstatus's generic webhook payload. If openstatus ships a breaking
