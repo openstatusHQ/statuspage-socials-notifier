@@ -1,85 +1,17 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
-import { z } from "zod";
 
 import { configuredProviders } from "./providers.js";
-
-// --- openstatus webhook contract (pinned to payload version "1") ---
-// Mirrors openstatus's generic webhook payload. If openstatus ships a breaking
-// change it bumps the version and parsing fails loudly instead of mis-posting.
-const WEBHOOK_PAYLOAD_VERSION = "1" as const;
-
-const impactSchema = z.enum([
-  "operational",
-  "degraded_performance",
-  "partial_outage",
-  "major_outage",
-]);
-type Impact = z.infer<typeof impactSchema>;
-
-const componentSchema = z.object({
-  id: z.number().int(),
-  name: z.string(),
-  impact: impactSchema,
-  changed: z.boolean(),
-});
-
-const pageSchema = z.object({
-  id: z.number().int(),
-  name: z.string(),
-  slug: z.string(),
-  url: z.string().url(),
-});
-
-const subscriptionSchema = z.object({
-  manage_url: z.string().nullable(),
-  unsubscribe_url: z.string().nullable(),
-});
-
-const webhookPayloadSchema = z.discriminatedUnion("type", [
-  z.object({
-    version: z.literal(WEBHOOK_PAYLOAD_VERSION),
-    type: z.literal("status_report"),
-    data: z.object({
-      status_report: z.object({
-        id: z.number().int(),
-        title: z.string(),
-        impact: impactSchema,
-        update: z.object({
-          id: z.number().int(),
-          status: z.enum(["investigating", "identified", "monitoring", "resolved"]),
-          message: z.string(),
-          created_at: z.string(),
-        }),
-        page: pageSchema,
-        components: z.array(componentSchema),
-      }),
-    }),
-    subscription: subscriptionSchema,
-  }),
-  z.object({
-    version: z.literal(WEBHOOK_PAYLOAD_VERSION),
-    type: z.literal("maintenance"),
-    data: z.object({
-      maintenance: z.object({
-        id: z.number().int(),
-        title: z.string(),
-        impact: impactSchema,
-        message: z.string(),
-        starts_at: z.string().optional(),
-        ends_at: z.string().optional(),
-        page: pageSchema,
-        components: z.array(componentSchema),
-      }),
-    }),
-    subscription: subscriptionSchema,
-  }),
-]);
-
-type WebhookPayload = z.infer<typeof webhookPayloadSchema>;
+import {
+  WEBHOOK_PAYLOAD_VERSION,
+  webhookPayloadSchema,
+  type Impact,
+  type Status,
+  type WebhookPayload,
+} from "./schema.js";
 
 // --- post text ---
-const STATUS_LABEL: Record<string, string> = {
+const STATUS_LABEL: Record<Status, string> = {
   investigating: "🔴 Investigating",
   identified: "🟠 Identified",
   monitoring: "🟡 Monitoring",
@@ -93,23 +25,15 @@ const IMPACT_LABEL: Record<Impact, string> = {
   major_outage: "Major outage",
 };
 
-function affectedLine(components: { name: string; impact: Impact }[]): string {
-  const affected = components.filter((c) => c.impact !== "operational");
-  if (affected.length === 0) return "";
-  return `Affected: ${affected
-    .map((c) => `${c.name} (${IMPACT_LABEL[c.impact]})`)
-    .join(", ")}`;
-}
-
 /** Platform-agnostic post text. Providers truncate to their own limit. */
-function renderPost(payload: WebhookPayload): string {
+export function renderPost(payload: WebhookPayload): string {
   if (payload.type === "maintenance") {
     const m = payload.data.maintenance;
     const window =
       m.starts_at && m.ends_at
         ? `🗓 ${new Date(m.starts_at).toUTCString()} → ${new Date(m.ends_at).toUTCString()}`
         : "";
-    return [`🛠 Scheduled maintenance: ${m.title}`, m.message, affectedLine(m.components), window, m.page.url]
+    return [`🛠 Scheduled maintenance: ${m.title}`, m.message, window, m.page.url]
       .filter(Boolean)
       .join("\n");
   }
@@ -125,7 +49,7 @@ function renderPost(payload: WebhookPayload): string {
 }
 
 /** Truncate to a character budget, keeping a trailing URL intact. */
-function truncate(text: string, max: number): string {
+export function truncate(text: string, max: number): string {
   const chars = Array.from(text); // never splits a surrogate pair
   if (chars.length <= max) return text;
 
@@ -139,21 +63,13 @@ function truncate(text: string, max: number): string {
   return `${kept.trimEnd()}…${keepUrl}`;
 }
 
-function shouldPost(payload: WebhookPayload): boolean {
+export function shouldPost(payload: WebhookPayload): boolean {
   if (payload.type === "maintenance") return process.env.POST_MAINTENANCE !== "false";
   const only = process.env.POST_ON_STATUSES?.split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
   if (!only || only.length === 0) return true;
   return only.includes(payload.data.status_report.update.status);
-}
-
-/** Constant-time string compare so the token can't leak via timing. */
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
 }
 
 // --- app ---
@@ -166,7 +82,7 @@ app.post("/webhook", async (c) => {
   const token = process.env.OPENSTATUS_WEBHOOK_TOKEN;
   if (token) {
     const auth = c.req.header("authorization") ?? "";
-    if (!timingSafeEqual(auth, `Bearer ${token}`)) {
+    if (auth !== `Bearer ${token}`) {
       return c.json({ error: "unauthorized" }, 401);
     }
   } else {
