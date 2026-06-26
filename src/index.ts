@@ -27,13 +27,17 @@ const IMPACT_LABEL: Record<Impact, string> = {
 
 /** Platform-agnostic post text. Providers truncate to their own limit. */
 export function renderPost(payload: WebhookPayload): string {
+  if (payload.type === "test") {
+    return `✅ openstatus test webhook received at ${payload.data.test.timestamp}`;
+  }
+
   if (payload.type === "maintenance") {
     const m = payload.data.maintenance;
     const window =
       m.starts_at && m.ends_at
         ? `🗓 ${new Date(m.starts_at).toUTCString()} → ${new Date(m.ends_at).toUTCString()}`
         : "";
-    return [`🛠 Scheduled maintenance: ${m.title}`, m.message, window, m.page.url]
+    return [`🛠 Scheduled maintenance: ${m.title}`, m.message, window, m.url]
       .filter(Boolean)
       .join("\n");
   }
@@ -41,7 +45,7 @@ export function renderPost(payload: WebhookPayload): string {
   const r = payload.data.status_report;
   return [
     `${STATUS_LABEL[r.update.status] ?? r.update.status}: ${r.title}`,
-    r.page.url,
+    r.url,
     r.update.message
   ]
     .filter(Boolean)
@@ -64,6 +68,8 @@ export function truncate(text: string, max: number): string {
 }
 
 export function shouldPost(payload: WebhookPayload): boolean {
+  // A test webhook only verifies reachability/auth — never broadcast it.
+  if (payload.type === "test") return false;
   if (payload.type === "maintenance") return process.env.POST_MAINTENANCE !== "false";
   const only = process.env.POST_ON_STATUSES?.split(",")
     .map((s) => s.trim().toLowerCase())

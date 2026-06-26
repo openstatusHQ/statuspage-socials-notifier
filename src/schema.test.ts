@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { WEBHOOK_PAYLOAD_VERSION, webhookPayloadSchema } from "./schema.js";
-import { maintenance, statusReport } from "./fixtures.js";
+import { maintenance, statusReport, test } from "./fixtures.js";
 
 describe("webhookPayloadSchema", () => {
   it("pins the payload version to '1'", () => {
@@ -15,6 +15,11 @@ describe("webhookPayloadSchema", () => {
 
   it("accepts a valid maintenance payload", () => {
     const parsed = webhookPayloadSchema.safeParse(maintenance());
+    expect(parsed.success).toBe(true);
+  });
+
+  it("accepts a valid test payload (no subscription)", () => {
+    const parsed = webhookPayloadSchema.safeParse(test());
     expect(parsed.success).toBe(true);
   });
 

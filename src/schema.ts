@@ -19,7 +19,7 @@ export type Status = z.infer<typeof statusSchema>;
 const componentSchema = z.object({
   id: z.number().int(),
   name: z.string(),
-  impact: impactSchema.nullable(),
+  impact: impactSchema.nullish(),
 });
 
 const pageSchema = z.object({
@@ -30,8 +30,8 @@ const pageSchema = z.object({
 });
 
 const subscriptionSchema = z.object({
-  manage_url: z.string().nullable(),
-  unsubscribe_url: z.string().nullable(),
+  manage_url: z.string().nullish(),
+  unsubscribe_url: z.string().nullish(),
 });
 
 export const webhookPayloadSchema = z.discriminatedUnion("type", [
@@ -42,11 +42,12 @@ export const webhookPayloadSchema = z.discriminatedUnion("type", [
       status_report: z.object({
         id: z.number().int(),
         title: z.string(),
+        url: z.string().url(),
         update: z.object({
           id: z.number().int(),
           status: statusSchema,
           message: z.string(),
-          created_at: z.string(),
+          occurred_at: z.string(),
         }),
         page: pageSchema,
         components: z.array(componentSchema),
@@ -61,6 +62,7 @@ export const webhookPayloadSchema = z.discriminatedUnion("type", [
       maintenance: z.object({
         id: z.number().int(),
         title: z.string(),
+        url: z.string().url(),
         message: z.string(),
         starts_at: z.string().optional(),
         ends_at: z.string().optional(),
@@ -69,6 +71,17 @@ export const webhookPayloadSchema = z.discriminatedUnion("type", [
       }),
     }),
     subscription: subscriptionSchema,
+  }),
+  // Connectivity check fired from openstatus's UI. Carries no subscription.
+  z.object({
+    version: z.literal(WEBHOOK_PAYLOAD_VERSION),
+    type: z.literal("test"),
+    data: z.object({
+      test: z.object({
+        message: z.string(),
+        timestamp: z.string(),
+      }),
+    }),
   }),
 ]);
 

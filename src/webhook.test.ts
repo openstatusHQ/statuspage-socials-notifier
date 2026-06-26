@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SocialProvider } from "./providers.js";
-import { maintenance, statusReport } from "./fixtures.js";
+import { maintenance, statusReport, test } from "./fixtures.js";
 
 // Capture what each provider was asked to post, without touching the network.
 const posted: Array<{ id: string; text: string }> = [];
@@ -117,6 +117,13 @@ describe("POST /webhook — filtering", () => {
   it("skips maintenance when POST_MAINTENANCE is false", async () => {
     process.env.POST_MAINTENANCE = "false";
     const res = await post(maintenance());
+    expect(await res.json()).toMatchObject({ skipped: "filtered" });
+    expect(posted).toHaveLength(0);
+  });
+
+  it("acks a test webhook without broadcasting it", async () => {
+    const res = await post(test());
+    expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ skipped: "filtered" });
     expect(posted).toHaveLength(0);
   });
