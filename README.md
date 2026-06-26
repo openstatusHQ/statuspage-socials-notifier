@@ -23,6 +23,8 @@ openstatus status report/update ──webhook──▶ /webhook ──▶ enable
 3. It **always responds `200`** with a per-provider result body — posting is
    best-effort and openstatus does not retry.
 
+openstatus **`test`** webhooks (the "Send test" button) only verify reachability and auth — they're acknowledged with `200` but **never broadcast** to Bluesky or X.
+
 The whole thing is two files: the route + payload schema in
 [`src/index.ts`](./src/index.ts) and the providers in
 [`src/providers.ts`](./src/providers.ts).
