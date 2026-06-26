@@ -23,7 +23,7 @@ export function statusReport(overrides: { status?: string } = {}): unknown {
           created_at: "2026-06-25T12:00:00.000Z",
         },
         page,
-        components: [{ id: 1, name: "API", impact: "major_outage", changed: true }],
+        components: [{ id: 1, name: "API", impact: "major_outage" }],
       },
     },
     subscription,

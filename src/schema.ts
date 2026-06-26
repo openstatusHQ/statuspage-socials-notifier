@@ -9,7 +9,7 @@ export const impactSchema = z.enum([
   "operational",
   "degraded_performance",
   "partial_outage",
-  "major_outage",
+  "major_outage"
 ]);
 export type Impact = z.infer<typeof impactSchema>;
 
@@ -20,7 +20,6 @@ const componentSchema = z.object({
   id: z.number().int(),
   name: z.string(),
   impact: impactSchema.nullable(),
-  changed: z.boolean(),
 });
 
 const pageSchema = z.object({
